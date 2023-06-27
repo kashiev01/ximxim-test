@@ -1,12 +1,18 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Model } from "sequelize";
 import { DatabaseConfig } from '../configs/dbConfig';
 import { genSalt } from 'bcrypt';
 import { genHash } from '../utils/utils';
+import { IUserModel } from './interfaces/user-model.interface';
 
 const sequelize = new DatabaseConfig().connectDB();
 
-export const User = sequelize.define("user", {
-	id: {
+export class User extends Model<IUserModel> {
+    declare id: string;
+    declare password: string
+} 
+
+User.init({
+    id: {
 		type: DataTypes.STRING,
 		allowNull: false,
         validate: {
@@ -21,7 +27,10 @@ export const User = sequelize.define("user", {
             notEmpty: true
         }
 	}
-});
+ }, {
+    sequelize, 
+    modelName: 'User'
+ })
 
 User.addHook('beforeSave', async (user) => {
     if (!user.getDataValue('password')) return;

@@ -3,16 +3,16 @@ import { AppConfig } from './src/configs/appConfig';
 import { DatabaseConfig } from './src/configs/dbConfig';
 import auth_router from './src/routes/Auth'
 import { ExceptionHandler } from './src/middleware/exception-handler';
+import file_router from './src/routes/File';
 
 
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/user", auth_router);
+app.use(auth_router);
+app.use('/file', file_router);
 app.use(ExceptionHandler);
-// app.use("/blog", blogRoute);
-// app.use(errorHandler);
 
 
 const appConfig = new AppConfig().createServerConfig();
