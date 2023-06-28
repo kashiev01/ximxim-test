@@ -1,12 +1,13 @@
 import { Response, NextFunction } from 'express';
-import { User } from '../models/User.model';
 import { promisify } from 'util';
 import dotenv from 'dotenv';
 import { File } from '../models/File.model';
 import fs from 'fs';
 import path from 'path';
 import { CustomRequest } from '../middleware/interfaces/request.interface';
-import { error } from 'console';
+import { WhereOptions } from 'sequelize';
+import { checkToken } from './Auth';
+
 const folderPath = path.join(__dirname, '../../uploads');
 
 dotenv.config();
@@ -15,20 +16,29 @@ export const uploadFile = async (
   req: CustomRequest,
   res: Response,
   next: NextFunction,
-): Promise<any> => {
-  if (!req.file) {
-    throw new Error('File not found. Please make sure you attached it');
-  }
-  const { originalname, size, mimetype, encoding } = req.file;
-
+) => {
   try {
-    const saveFile = await File.create({
-      name: originalname,
-      size,
-      mime_type: mimetype,
-      extension: encoding,
-    });
-    res.send(saveFile);
+    let check_token;
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!req.file) {
+      throw new Error('File not found. Please make sure you attached it');
+    }
+    if (token) {
+      check_token = await checkToken(token);
+    }
+
+    if (check_token) {
+      const { originalname, size, mimetype, encoding } = req.file;
+      const saveFile = await File.create({
+        name: originalname,
+        size,
+        mime_type: mimetype,
+        extension: encoding,
+      });
+      res.send(saveFile);
+    } else {
+      throw new Error('Your token access_token is revoked');
+    }
   } catch (error) {
     next(error);
   }
@@ -38,18 +48,27 @@ export const getAllFiles = async (
   req: CustomRequest,
   res: Response,
   next: NextFunction,
-): Promise<any> => {
+) => {
   const page = parseInt(req.query.page as string, 10) || 1;
   const limit = parseInt(req.query.list_size as string, 10) || 10;
   const offset = (page - 1) * limit;
-
+  let check_token;
+  const token = req.headers.authorization?.split(' ')[1];
   try {
-    const files = await File.findAll({
-      limit: limit,
-      offset: offset,
-      where: {},
-    });
-    res.send(files);
+    if (token) {
+      check_token = await checkToken(token);
+    }
+
+    if (check_token) {
+      const files = await File.findAll({
+        limit: limit,
+        offset: offset,
+        where: {},
+      });
+      res.send(files);
+    } else {
+      throw new Error('Your token access_token is revoked');
+    }
   } catch (error) {
     next(error);
   }
@@ -59,21 +78,30 @@ export const deleteFileById = async (
   req: CustomRequest,
   res: Response,
   next: NextFunction,
-): Promise<any> => {
+) => {
+  let check_token;
+  const token = req.headers.authorization?.split(' ')[1];
   const unlinkAsync = promisify(fs.unlink);
-  console.log(folderPath);
   const fileId = parseInt(req.params.id);
 
   try {
-    const file = await File.findByPk(fileId);
-    if (!file) {
-      throw new Error('Wrong file id');
+    if (token) {
+      check_token = await checkToken(token);
     }
 
-    await file.destroy();
+    if (check_token) {
+      const file = await File.findByPk(fileId);
+      if (!file) {
+        throw new Error('File not found');
+      }
 
-    await unlinkAsync(`${folderPath}/${file.name}`);
-    res.send(`File with id=${fileId} was deleted`);
+      await file.destroy();
+
+      await unlinkAsync(`${folderPath}/${file.name}`);
+      res.send(`File with id=${fileId} was deleted`);
+    } else {
+      throw new Error('Your token access_token is revoked');
+    }
   } catch (error) {
     next(error);
   }
@@ -83,16 +111,26 @@ export const getFileById = async (
   req: CustomRequest,
   res: Response,
   next: NextFunction,
-): Promise<any> => {
+) => {
+  let check_token;
+  const token = req.headers.authorization?.split(' ')[1];
   const fileId = parseInt(req.params.id);
 
   try {
-    const file = await File.findByPk(fileId);
-    if (!file) {
-      throw new Error('Wrong file id');
+    if (token) {
+      check_token = await checkToken(token);
     }
 
-    res.send(file);
+    if (check_token) {
+      const file = await File.findByPk(fileId);
+      if (!file) {
+        throw new Error('Wrong file id');
+      }
+
+      res.send(file);
+    } else {
+      throw new Error('Your token access_token is revoked');
+    }
   } catch (error) {
     next(error);
   }
@@ -102,20 +140,70 @@ export const downloadFileById = async (
   req: CustomRequest,
   res: Response,
   next: NextFunction,
-): Promise<any> => {
+) => {
+  let check_token;
+  const token = req.headers.authorization?.split(' ')[1];
   const fileId = parseInt(req.params.id);
   try {
-    console.log(123);
-    const file = await File.findByPk(fileId);
-    if (!file) {
-      throw new Error('File not found');
+    if (token) {
+      check_token = await checkToken(token);
     }
 
-    res.download(folderPath, `${file.name}`, (error) => {
-      if (error) {
-        res.send(error);
+    if (check_token) {
+      const file = await File.findByPk(fileId);
+      if (!file) {
+        throw new Error('File not found');
       }
-    });
+
+      res.download(`${folderPath}/${file.name}`, file.name, (error) => {
+        if (error) {
+          res.send(error);
+        }
+      });
+    } else {
+      throw new Error('Your token access_token is revoked');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateFileById = async (
+  req: CustomRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<any> => {
+  const fileId = parseInt(req.params.id);
+  let check_token;
+  const token = req.headers.authorization?.split(' ')[1];
+
+  try {
+    if (token) {
+      check_token = await checkToken(token);
+    }
+
+    if (check_token) {
+      if (!req.file) {
+        throw new Error('File not found. Please make sure you attached it');
+      }
+
+      const { originalname, size, mimetype, encoding } = req.file;
+      const file = await File.findByPk(fileId);
+      if (!file) {
+        throw new Error('File not found');
+      }
+      const unlinkAsync = promisify(fs.unlink);
+      await unlinkAsync(`${folderPath}/${file.name}`);
+
+      const newFile = await File.update(
+        { name: originalname, size, mime_type: mimetype, extension: encoding },
+        { where: { id: fileId } as WhereOptions },
+      );
+
+      res.send(newFile);
+    } else {
+      throw new Error('Your token access_token is revoked');
+    }
   } catch (error) {
     next(error);
   }

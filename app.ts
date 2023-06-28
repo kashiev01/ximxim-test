@@ -4,9 +4,10 @@ import { DatabaseConfig } from './src/configs/dbConfig';
 import auth_router from './src/routes/Auth'
 import { ExceptionHandler } from './src/middleware/exception-handler';
 import file_router from './src/routes/File';
-
+import cors from 'cors'
 
 const app = express();
+app.use(cors({ origin: '*' }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

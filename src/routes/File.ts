@@ -1,5 +1,5 @@
 import express from 'express';
-import { deleteFileById, downloadFileById, getAllFiles, getFileById, uploadFile } from '../controllers/File';
+import { deleteFileById, downloadFileById, getAllFiles, getFileById, updateFileById, uploadFile } from '../controllers/File';
 import { upload } from '../middleware/multerStorage';
 import { verifyToken } from '../middleware/jwtVerify';
 
@@ -10,5 +10,6 @@ file_router.get('/list', verifyToken, getAllFiles);
 file_router.delete('/delete/:id', verifyToken, deleteFileById);
 file_router.get('/:id', verifyToken, getFileById);
 file_router.get('/download/:id', verifyToken, downloadFileById);
+file_router.put('/update/:id', verifyToken, upload.single('file'), updateFileById);
 
 export = file_router;

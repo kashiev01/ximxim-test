@@ -1,11 +1,13 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { promisify } from 'util';
+const mkdirAsync = promisify(fs.mkdir);
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: async (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../../uploads');
-    fs.mkdirSync(uploadDir, { recursive: true });
+    await mkdirAsync(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
